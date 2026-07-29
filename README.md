@@ -2,7 +2,7 @@
 
 A real-time cryptocurrency tracking and portfolio management dashboard built with **React 18**, **React Router v7**, **Zustand**, **TanStack React Query**, **Lucide Icons**, **Tailwind CSS**, and **Vite**.
 
-👉 **Live Deployment:** [hero-photo-carousel.vercel.app](https://hero-photo-carousel.vercel.app/)
+👉 **Live Deployment:** [crypto-portfolio-tracker.vercel.app](https://crypto-portfolio-tracker-sandy.vercel.app/)
 ---
 
 ## 🖼️ Application Showcase
