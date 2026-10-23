@@ -6,6 +6,7 @@
 // A missing entry is not an error: portfolio rows without a Binance market use
 // CoinGecko REST polling every 30 seconds and are labeled "polling fallback".
 export const BINANCE_SYMBOL_MAP = Object.freeze({
+  livepeer: 'LPTUSDT',
   bitcoin: 'BTCUSDT', ethereum: 'ETHUSDT', tether: 'USDTUSDT', binancecoin: 'BNBUSDT', solana: 'SOLUSDT',
   'usd-coin': 'USDCUSDT', ripple: 'XRPUSDT', dogecoin: 'DOGEUSDT', cardano: 'ADAUSDT', avalanche: 'AVAXUSDT',
   'shiba-inu': 'SHIBUSDT', 'the-open-network': 'TONUSDT', chainlink: 'LINKUSDT', 'bitcoin-cash': 'BCHUSDT', polkadot: 'DOTUSDT',

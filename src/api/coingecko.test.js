@@ -57,4 +57,14 @@ describe('CoinGecko API', () => {
 
     await expect(getCoinsList()).rejects.toEqual({ source: 'coingecko', status: 429, message: 'Rate limit exceeded' })
   })
+  it('falls back to coin details when the markets endpoint fails', async () => {
+    get.mockRejectedValueOnce(new Error('Unavailable')).mockResolvedValueOnce({ data: {
+      id: 'bitcoin', name: 'Bitcoin', symbol: 'btc', image: { small: 'btc.png' }, market_cap_rank: 1,
+      market_data: { current_price: { usd: 100 }, market_cap: { usd: 2000 }, total_volume: { usd: 300 }, price_change_percentage_24h: 2, price_change_percentage_7d: 5 },
+    } })
+    const { getCoinDetails } = await import('./coingecko.js')
+    await expect(getCoinDetails('bitcoin')).resolves.toMatchObject({ price: 100, marketCap: 2000, volume: 300, change7d: 5 })
+    expect(get.mock.calls[1][0]).toBe('/coins/bitcoin')
+  })
+
 })

@@ -21,13 +21,17 @@ function normalizeError(error) {
   }
 }
 
+let rateLimitedUntil = 0
+
 async function request(path, config) {
+  if (Date.now() < rateLimitedUntil) throw { source: 'coingecko', status: 429, message: 'Request limit reached. Retry in a minute.' }
   try {
     return (await client.get(path, config)).data
   } catch (error) {
     if (axios.isCancel?.(error)) {
       throw error
     }
+    if (error?.response?.status === 429) rateLimitedUntil = Date.now() + 60_000
     throw normalizeError(error)
   }
 }
@@ -88,4 +92,40 @@ export async function getCoinMarketChart(coinId, days = 7, options = {}) {
     signal: options.signal,
   })
   return (data.prices || []).map(([timestamp, price]) => ({ timestamp, price }))
+}
+
+export async function getMarketLeaders(options = {}) {
+  const data = await request('/coins/markets', {
+    params: { vs_currency: 'usd', order: 'market_cap_desc', per_page: 100, page: 1, sparkline: true, price_change_percentage: '24h,7d' },
+    signal: options.signal,
+  })
+  return data.map((coin) => ({
+    id: coin.id, name: coin.name, symbol: coin.symbol.toUpperCase(), image: coin.image,
+    price: coin.current_price, marketCap: coin.market_cap, volume: coin.total_volume, rank: coin.market_cap_rank, change24h: coin.price_change_percentage_24h,
+    change7d: coin.price_change_percentage_7d_in_currency,
+    history: coin.sparkline_in_7d?.price || [],
+  }))
+}
+
+export async function getCoinDetails(coinId, options = {}) {
+  try {
+    const data = await request('/coins/markets', {
+      params: { vs_currency: 'usd', ids: coinId, price_change_percentage: '24h,7d' }, signal: options.signal,
+    })
+    const coin = data[0]
+    if (!coin) throw new Error('Coin statistics are unavailable')
+    return { id: coin.id, name: coin.name, symbol: coin.symbol.toUpperCase(), image: coin.image,
+      price: coin.current_price, marketCap: coin.market_cap, volume: coin.total_volume, rank: coin.market_cap_rank,
+      change24h: coin.price_change_percentage_24h, change7d: coin.price_change_percentage_7d_in_currency }
+  } catch (error) {
+    if (options.signal?.aborted || axios.isCancel?.(error) || error.status === 429 || error.status === 401 || error.status === 403) throw error
+    const coin = await request(`/coins/${coinId}`, {
+      params: { localization: false, tickers: false, market_data: true, community_data: false, developer_data: false }, signal: options.signal,
+    })
+    if (!coin.market_data) throw new Error('Coin statistics are unavailable')
+    return { id: coin.id, name: coin.name, symbol: coin.symbol.toUpperCase(), image: coin.image?.small,
+      price: coin.market_data.current_price?.usd, marketCap: coin.market_data.market_cap?.usd,
+      volume: coin.market_data.total_volume?.usd, rank: coin.market_cap_rank,
+      change24h: coin.market_data.price_change_percentage_24h, change7d: coin.market_data.price_change_percentage_7d }
+  }
 }

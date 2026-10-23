@@ -1,7 +1,10 @@
+import DataFreshness from './DataFreshness.jsx'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { RefreshCw, TrendingDown, TrendingUp } from 'lucide-react'
-import { getCoinMarketChart } from '../api/coingecko.js'
+import { getPopularHistory } from '../api/popularHistory.js'
+import { useCoinDetailStore } from '../store/coinDetailStore.js'
+import CoinIcon from './CoinIcon.jsx'
 import { formatCurrency, formatPercent } from '../utils/format.js'
 
 const POPULAR_COINS = [
@@ -58,8 +61,10 @@ function buildChart(points) {
   return { line, area, min, max, coordinates, width, height, gridLines }
 }
 
-export default function PopularCryptoChart() {
-  const [selectedId, setSelectedId] = useState('bitcoin')
+export default function PopularCryptoChart({ coin = null }) {
+  const openDetails = useCoinDetailStore((state) => state.open)
+  const titleId = useId()
+  const [selectedId, setSelectedId] = useState(coin?.id || 'bitcoin')
   const [days, setDays] = useState(7)
   const [hoveredIndex, setHoveredIndex] = useState(null)
 
@@ -67,7 +72,7 @@ export default function PopularCryptoChart() {
   const chartContainerRef = useRef(null)
   const memoryCacheRef = useRef(new Map())
 
-  const selected = POPULAR_COINS.find((coin) => coin.id === selectedId) || POPULAR_COINS[0]
+  const selected = coin || POPULAR_COINS.find((coin) => coin.id === selectedId) || POPULAR_COINS[0]
   const activeTimeframe = TIMEFRAMES.find((tf) => tf.days === days) || TIMEFRAMES[1]
   const gradientId = `chart-fill-${useId().replaceAll(':', '')}`
 
@@ -81,23 +86,24 @@ export default function PopularCryptoChart() {
 
   // In-flight cancellation + memory cache
   const chartQuery = useQuery({
-    queryKey: ['popular-market-chart', selectedId, days],
-    queryFn: ({ signal }) => getCoinMarketChart(selectedId, days, { signal }),
+    queryKey: ['popular-market-history', selectedId, days],
+    queryFn: ({ signal }) => getPopularHistory(selectedId, days, { signal }),
     staleTime: 5 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    retry: 1,
     placeholderData: () => memoryCacheRef.current.get(`${selectedId}-${days}`),
   })
 
   useEffect(() => {
-    if (chartQuery.data?.length) {
+    if (chartQuery.data?.points?.length) {
       memoryCacheRef.current.set(`${selectedId}-${days}`, chartQuery.data)
     }
   }, [chartQuery.data, selectedId, days])
 
-  const chart = useMemo(() => buildChart(chartQuery.data), [chartQuery.data])
+  const chart = useMemo(() => buildChart(chartQuery.data?.points), [chartQuery.data])
 
-  const firstPrice = chartQuery.data?.[0]?.price
-  const currentPrice = chartQuery.data?.at(-1)?.price
+  const firstPrice = chartQuery.data?.points?.[0]?.price
+  const currentPrice = chartQuery.data?.points?.at(-1)?.price
   const totalChange = firstPrice ? ((currentPrice - firstPrice) / firstPrice) * 100 : null
   const isPositive = totalChange === null || totalChange >= 0
 
@@ -105,27 +111,27 @@ export default function PopularCryptoChart() {
 
   // Pointer interactions
   const handlePointerMove = (e) => {
-    if (!chartQuery.data?.length || !chartContainerRef.current) return
+    if (!chartQuery.data?.points?.length || !chartContainerRef.current) return
     const rect = chartContainerRef.current.getBoundingClientRect()
     const clientX = e.touches ? e.touches[0].clientX : e.clientX
     const relativeX = Math.max(0, Math.min(clientX - rect.left, rect.width))
-    const index = Math.round((relativeX / rect.width) * (chartQuery.data.length - 1))
+    const index = Math.round((relativeX / rect.width) * (chartQuery.data.points.length - 1))
     setHoveredIndex(index)
   }
 
   const handlePointerLeave = () => setHoveredIndex(null)
 
-  const activePointIndex = hoveredIndex !== null && hoveredIndex < (chartQuery.data?.length || 0) ? hoveredIndex : null
-  const activePoint = activePointIndex !== null ? chartQuery.data[activePointIndex] : null
+  const activePointIndex = hoveredIndex !== null && hoveredIndex < (chartQuery.data?.points?.length || 0) ? hoveredIndex : null
+  const activePoint = activePointIndex !== null ? chartQuery.data.points[activePointIndex] : null
   const activeCoord = activePointIndex !== null && chart ? chart.coordinates[activePointIndex] : null
   const activePointChange = activePoint && firstPrice ? ((activePoint.price - firstPrice) / firstPrice) * 100 : null
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-line bg-panel" aria-labelledby="market-pulse-title">
+    <section className="overflow-hidden rounded-2xl border border-line bg-panel" aria-labelledby={titleId}>
       <div className="flex flex-col gap-4 border-b border-line px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="eyebrow">Popular assets · {activeTimeframe.subtitle}</p>
-          <h2 id="market-pulse-title" className="mt-2 text-xl font-semibold text-white">Market pulse</h2>
+          <h2 id={titleId} className="mt-2 text-xl font-semibold text-white">{coin ? 'Price history' : 'Market pulse'}</h2>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3 lg:justify-end">
@@ -153,7 +159,7 @@ export default function PopularCryptoChart() {
           </div>
 
           {/* Coin Selector */}
-          <div className="chart-tabs -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" aria-label="Choose cryptocurrency">
+          {!coin && <div className="chart-tabs -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" aria-label="Choose cryptocurrency">
             {POPULAR_COINS.map((coin) => {
               const active = coin.id === selectedId
               return (
@@ -174,14 +180,14 @@ export default function PopularCryptoChart() {
                       : 'border-line bg-ink/40 text-fog hover:border-fog/40 hover:text-white'
                   }`}
                 >
-                  <span className="block text-xs font-semibold">{coin.name}</span>
+                  <span className="flex items-center gap-2"><CoinIcon id={coin.id} symbol={coin.symbol} className="h-6 w-6" /><span className="block text-xs font-semibold">{coin.name}</span></span>
                   <span className={`font-mono text-[9px] ${active ? (isPositive ? 'text-mint' : 'text-ember') : 'text-fog'}`}>
                     {coin.symbol}
                   </span>
                 </button>
               )
             })}
-          </div>
+          </div>}
         </div>
       </div>
 
@@ -190,7 +196,7 @@ export default function PopularCryptoChart() {
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs text-fog">
-              {selected.name} {activePoint ? 'hovered price' : 'current price'}
+              {selected.name} {activePoint ? 'hovered price' : 'latest chart price'} · {chartQuery.data?.quote || 'Price'}
             </p>
             <p className="mt-1 font-mono text-2xl font-medium text-white sm:text-3xl">
               {formatCurrency(activePoint ? activePoint.price : currentPrice)}
@@ -222,6 +228,7 @@ export default function PopularCryptoChart() {
           </div>
         </div>
 
+        {!coin && <button type="button" onClick={() => openDetails(selected)} className="mb-4 text-sm font-semibold text-acid hover:underline">View {selected.name} details →</button>}
         {/* Chart View */}
         {chartQuery.isLoading && !chart ? (
           <div aria-label="Loading market chart" className="h-64 animate-pulse rounded-xl bg-white/[0.035]" />
@@ -229,7 +236,7 @@ export default function PopularCryptoChart() {
           <div className="grid h-64 place-items-center rounded-xl border border-dashed border-line bg-ink/30 text-center">
             <div>
               <p className="text-sm font-semibold text-white">Chart temporarily unavailable</p>
-              <p className="mt-1 text-xs text-fog">CoinGecko did not return price history.</p>
+              <p className="mt-1 text-xs text-fog">Price history could not load from the available providers. Please retry.</p>
               <button type="button" onClick={() => chartQuery.refetch()} className="button-secondary mt-4">
                 <RefreshCw className="h-4 w-4" /> Retry
               </button>
@@ -237,6 +244,7 @@ export default function PopularCryptoChart() {
           </div>
         ) : chart ? (
           <div>
+            {chartQuery.isError && <p className="mb-3 text-xs text-amber-300">Refresh failed. Showing the last available chart for this coin and period.</p>}
             <div
               ref={chartContainerRef}
               onMouseMove={handlePointerMove}
@@ -264,7 +272,7 @@ export default function PopularCryptoChart() {
               {/* SVG Chart */}
               <svg
                 role="img"
-                aria-label={`${selected.name} ${activeTimeframe.subtitle} USD price chart`}
+                aria-label={`${selected.name} ${activeTimeframe.subtitle} ${chartQuery.data?.quote || 'USD'} price chart`}
                 className="relative h-full w-full"
                 viewBox={`0 0 ${chart.width} ${chart.height}`}
                 preserveAspectRatio="none"
@@ -317,8 +325,8 @@ export default function PopularCryptoChart() {
                 <div
                   className="pointer-events-none absolute z-10 rounded-lg border border-line bg-ink/95 px-3 py-1.5 shadow-xl backdrop-blur-md transition-all duration-75"
                   style={{
-                    left: `min(max(${activeCoord.x}px - 70px, 8px), calc(100% - 150px))`,
-                    top: `max(${activeCoord.y}px - 60px, 8px)`,
+                    left: `min(max(${activeCoord.x / chart.width * 100}% - 70px, 8px), calc(100% - 150px))`,
+                    top: `max(${activeCoord.y / chart.height * 100}% - 60px, 8px)`,
                   }}
                 >
                   <p className="font-mono text-xs font-semibold text-white">
@@ -334,8 +342,8 @@ export default function PopularCryptoChart() {
             {/* Subtitle / Footer stats */}
             <div className="mt-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-wider text-fog">
               <span>{days === 1 ? '24 hours ago' : `${days} days ago`}</span>
-              <span>USD · {days === 1 ? '5-Min' : 'Hourly'}</span>
-              <span>Now</span>
+              <span>{chartQuery.data?.source} · {chartQuery.data?.quote} · {chartQuery.data?.interval}<DataFreshness fetchedAt={chartQuery.data?.fetchedAt} error={chartQuery.isError} fetching={chartQuery.isFetching} /></span>
+              <span>Latest</span>
             </div>
           </div>
         ) : null}

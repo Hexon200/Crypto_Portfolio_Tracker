@@ -1,11 +1,13 @@
-import { Activity, Bell, LayoutDashboard, PieChart } from 'lucide-react'
+import { Activity, Bell, LayoutDashboard, PieChart, History, Download } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { usePriceStore } from '../store/priceStore.js'
 
 const links = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/portfolio', label: 'Portfolio', icon: PieChart },
+  { to: '/transactions', label: 'History', icon: History },
   { to: '/alerts', label: 'Alerts', icon: Bell },
+  { to: '/backup', label: 'Backup', icon: Download },
 ]
 
 function ConnectionIndicator() {
@@ -26,7 +28,7 @@ export default function Layout({ children }) {
         </div>
       </header>
       <main className="relative mx-auto max-w-[1440px] px-4 pb-28 pt-8 sm:px-6 sm:pt-12 lg:px-10">{children}</main>
-      <nav aria-label="Mobile navigation" className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 rounded-2xl border border-line bg-panel/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden">{links.map(({ to, label, icon: Icon, end }) => <NavLink key={to} to={to} end={end} className={({ isActive }) => `flex min-h-12 min-w-[5rem] flex-col items-center justify-center gap-1 rounded-xl px-3 text-[10px] ${isActive ? 'bg-acid/10 text-acid' : 'text-fog'}`}><Icon className="h-4 w-4" />{label}</NavLink>)}</nav>
+      <nav aria-label="Mobile navigation" className="fixed bottom-4 left-1/2 z-40 flex -translate-x-1/2 rounded-2xl border border-line bg-panel/95 p-1.5 shadow-2xl backdrop-blur-xl md:hidden">{links.map(({ to, label, icon: Icon, end }) => <NavLink key={to} to={to} end={end} className={({ isActive }) => `flex min-h-12 min-w-[3.4rem] flex-col items-center justify-center gap-1 rounded-xl px-2 text-[10px] ${isActive ? 'bg-acid/10 text-acid' : 'text-fog'}`}><Icon className="h-4 w-4" />{label}</NavLink>)}</nav>
     </div>
   )
 }

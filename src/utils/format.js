@@ -1,4 +1,5 @@
 export function formatCurrency(value, maximumFractionDigits = 2) {
+  if (value == null) return '—'
   if (!Number.isFinite(Number(value))) return '—'
   const numeric = Number(value)
   const digits = Math.abs(numeric) < 1 ? 6 : maximumFractionDigits
@@ -6,6 +7,7 @@ export function formatCurrency(value, maximumFractionDigits = 2) {
 }
 
 export function formatPercent(value) {
+  if (value == null) return '—'
   if (!Number.isFinite(Number(value))) return '—'
   return `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(2)}%`
 }

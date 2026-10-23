@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getCoinMarketData } from '../api/coingecko.js'
+import { getCoinMarketData } from '../api/marketData.js'
 import { toBinanceSymbol } from '../api/binanceSymbolMap.js'
 import { useBinanceSocket } from '../api/binanceSocket.js'
 import { useAlertStore } from '../store/alertStore.js'
@@ -34,6 +34,7 @@ export function useRealtimePrices() {
     queryFn: () => getCoinMarketData(coinIds),
     enabled: coinIds.length > 0,
     staleTime: 30_000,
+    refetchInterval: 60_000,
   })
 
   useEffect(() => {
@@ -41,11 +42,14 @@ export function useRealtimePrices() {
     trackedCoins.forEach((coin) => {
       const market = initialMarket.data[coin.coingeckoId]
       const existing = usePriceStore.getState().prices[coin.symbol]
-      if (market && existing?.source !== 'ws') updatePrice(coin.symbol, {
+      if (market && (existing?.source !== 'ws' || Date.now() - existing.lastUpdate > 60_000)) updatePrice(coin.symbol, {
         price: market.price,
         change24h: market.change24h,
-        lastUpdate: Date.now(),
+        lastUpdate: Date.parse(market.updatedAt) || market.fetchedAt,
+        updatedAt: market.updatedAt,
+        fetchedAt: market.fetchedAt,
         source: 'rest',
+        provider: market.source,
       })
     })
   }, [initialMarket.data, trackedCoins, updatePrice])
@@ -66,8 +70,11 @@ export function useRealtimePrices() {
       if (market) updatePrice(coin.symbol, {
         price: market.price,
         change24h: market.change24h,
-        lastUpdate: Date.now(),
+        lastUpdate: Date.parse(market.updatedAt) || market.fetchedAt,
+        updatedAt: market.updatedAt,
+        fetchedAt: market.fetchedAt,
         source: 'rest',
+        provider: market.source,
       })
     })
   }, [fallbackMarket.data, fallbackCoins, updatePrice])
@@ -77,7 +84,7 @@ export function useRealtimePrices() {
     const targetSymbols = new Set(currentTracked
       .filter((coin) => toBinanceSymbol(coin.coingeckoId) === binanceSymbol)
       .map((coin) => coin.symbol))
-    targetSymbols.forEach((symbol) => usePriceStore.getState().updatePrice(symbol, data))
+    targetSymbols.forEach((symbol) => usePriceStore.getState().updatePrice(symbol, { ...data, provider: 'Binance', updatedAt: data.lastUpdate, fetchedAt: undefined }))
   }, [])
 
   const handleStatus = useCallback((status) => setConnectionStatus(status), [setConnectionStatus])

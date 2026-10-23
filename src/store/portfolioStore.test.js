@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { usePortfolioStore } from './portfolioStore.js'
 
 describe('portfolioStore', () => {
-  beforeEach(() => usePortfolioStore.setState({ holdings: [] }))
+  beforeEach(() => usePortfolioStore.setState({ holdings: [], transactions: null }))
 
   it('adds, updates, removes, and persists holdings', () => {
     usePortfolioStore.getState().addHolding({ id: 'h1', coingeckoId: 'bitcoin', symbol: 'BTC', amount: 0.5, avgBuyPrice: 50000, addedAt: 1 })

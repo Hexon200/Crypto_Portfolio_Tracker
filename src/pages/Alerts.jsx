@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { BellRing, Plus, Trash2 } from 'lucide-react'
 import CoinSearch from '../components/CoinSearch.jsx'
 import { useAlertStore } from '../store/alertStore.js'
@@ -11,7 +12,9 @@ export default function Alerts() {
   const removeAlert = useAlertStore((state) => state.removeAlert)
   const toggleAlert = useAlertStore((state) => state.toggleAlert)
   const prices = usePriceStore((state) => state.prices)
-  const [coin, setCoin] = useState(null)
+  const location = useLocation()
+  const [coin, setCoin] = useState(location.state?.coin || null)
+  useEffect(() => { if (location.state?.coin) setCoin(location.state.coin) }, [location.key, location.state])
   const [condition, setCondition] = useState('above')
   const [targetPrice, setTargetPrice] = useState('')
 

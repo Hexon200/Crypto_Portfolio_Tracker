@@ -6,7 +6,8 @@ import App from './App.jsx'
 import { useAlertStore } from './store/alertStore.js'
 import { usePortfolioStore } from './store/portfolioStore.js'
 
-vi.mock('./api/coingecko.js', () => ({
+vi.mock('./api/marketData.js', () => ({
+  getMarketLeaders: vi.fn().mockResolvedValue([]),
   getCoinsList: vi.fn().mockResolvedValue([]),
   getCoinMarketChart: vi.fn().mockResolvedValue([
     { timestamp: 1, price: 60000 },
@@ -16,6 +17,8 @@ vi.mock('./api/coingecko.js', () => ({
   getCoinMetadata: vi.fn().mockResolvedValue(null),
   searchCoins: vi.fn().mockResolvedValue([]),
 }))
+
+vi.mock('./api/popularHistory.js', () => ({ getPopularHistory: vi.fn().mockResolvedValue({ points: [{ timestamp: 1, price: 100 }, { timestamp: 2, price: 110 }], source: 'Binance', quote: 'USDT', interval: 'Hourly' }) }))
 
 function renderApp(path = '/') {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -42,7 +45,7 @@ describe('Coinpulse app routes', () => {
   it('shows popular crypto chart controls without holdings', () => {
     renderApp('/')
     expect(screen.getByRole('heading', { name: /market pulse/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /bitcoin/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Bitcoin BTC', exact: true })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: /ethereum/i })).toBeInTheDocument()
   })
 
